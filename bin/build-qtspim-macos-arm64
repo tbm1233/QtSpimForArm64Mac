@@ -1,0 +1,120 @@
+#!/bin/bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+QTSPIM_DIR="$ROOT_DIR/QtSpim"
+BUILD_DIR="$ROOT_DIR/build-qtspim-macos-arm64"
+
+if [[ "$(uname -m)" != "arm64" ]]; then
+  echo "Run this script from an Apple Silicon Mac (arm64)." >&2
+  exit 1
+fi
+
+if [[ -n "${QMAKE:-}" ]]; then
+  QMAKE_BIN="$QMAKE"
+elif command -v qmake >/dev/null 2>&1; then
+  QMAKE_BIN="$(command -v qmake)"
+elif command -v qmake5 >/dev/null 2>&1; then
+  QMAKE_BIN="$(command -v qmake5)"
+else
+  echo "Qt 5 qmake was not found. Install Qt 5.15 and set QMAKE to its qmake executable." >&2
+  exit 1
+fi
+
+if [[ ! -x "$QMAKE_BIN" ]]; then
+  echo "qmake is not executable: $QMAKE_BIN" >&2
+  exit 1
+fi
+QMAKE_BIN="$(cd "$(dirname "$QMAKE_BIN")" && pwd)/$(basename "$QMAKE_BIN")"
+
+QT_VERSION="$($QMAKE_BIN -query QT_VERSION)"
+if [[ "$QT_VERSION" != 5.* ]]; then
+  echo "Qt 5 is required (found Qt $QT_VERSION). This source uses Qt 5 APIs." >&2
+  exit 1
+fi
+
+QMAKE_DIR="$(cd "$(dirname "$QMAKE_BIN")" && pwd)"
+MACDEPLOYQT="$QMAKE_DIR/macdeployqt"
+if [[ ! -x "$MACDEPLOYQT" ]]; then
+  echo "macdeployqt was not found beside qmake: $MACDEPLOYQT" >&2
+  exit 1
+fi
+
+command -v bison >/dev/null 2>&1 || { echo "bison is required." >&2; exit 1; }
+command -v flex >/dev/null 2>&1 || { echo "flex is required." >&2; exit 1; }
+
+mkdir -p "$BUILD_DIR"
+cd "$BUILD_DIR"
+"$QMAKE_BIN" "$QTSPIM_DIR/QtSpim.pro" CONFIG+=release
+JOBS="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)"
+make -j"$JOBS"
+
+BUILD_APP="$BUILD_DIR/QtSpim.app"
+APP="$BUILD_DIR/QtSpimForArm64Mac.app"
+if [[ ! -d "$BUILD_APP" ]]; then
+  echo "The build completed without producing QtSpim.app." >&2
+  exit 1
+fi
+
+"$MACDEPLOYQT" "$BUILD_APP" -no-strip
+
+# QtSpim does not use Qt Virtual Keyboard. Some Qt installations or deployment
+# steps may nevertheless leave its framework, input-context plugin, or QML
+# module in the bundle. The component has separate GPLv3/commercial licensing,
+# so keep it out of the distributable app unless the project starts using it.
+APP_CONTENTS="$BUILD_APP/Contents"
+if /usr/bin/otool -L "$APP_CONTENTS/MacOS/QtSpim" 2>/dev/null \
+  | /usr/bin/grep -Eiq 'QtVirtualKeyboard|libqtvirtualkeyboard'; then
+  echo "QtSpim executable links Qt Virtual Keyboard; refusing to remove a required library." >&2
+  exit 1
+fi
+
+/usr/bin/find "$APP_CONTENTS" \
+  \( -name 'QtVirtualKeyboard.framework' \
+     -o -name 'libqtvirtualkeyboard*.dylib' \
+     -o -iname 'virtualkeyboard' \
+     -o -path '*/qml/QtQuick/VirtualKeyboard' \) \
+  -prune -exec rm -rf {} +
+
+if /usr/bin/find "$APP_CONTENTS" \
+  \( -iname '*virtualkeyboard*' -o -iname '*virtual-keyboard*' \) \
+  -print -quit | /usr/bin/grep -q .; then
+  echo "Qt Virtual Keyboard files remain in the app bundle." >&2
+  exit 1
+fi
+
+mkdir -p "$BUILD_APP/Contents/Resources/doc"
+cp -R "$QTSPIM_DIR/help/qtspim."* "$BUILD_APP/Contents/Resources/doc/"
+
+if /usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' \
+  "$BUILD_APP/Contents/Info.plist" >/dev/null 2>&1; then
+  /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName QtSpimForArm64Mac' \
+    "$BUILD_APP/Contents/Info.plist"
+else
+  /usr/libexec/PlistBuddy -c 'Add :CFBundleDisplayName string QtSpimForArm64Mac' \
+    "$BUILD_APP/Contents/Info.plist"
+fi
+
+# Homebrew's Qt 5 cocoa plugin loads Brotli through libbrotlidec. macdeployqt
+# may bundle libbrotlidec without its indirect libbrotlicommon dependency.
+if command -v brew >/dev/null 2>&1; then
+  BROTLI_LIB_DIR="$(brew --prefix brotli 2>/dev/null)/lib"
+  if [[ -f "$BROTLI_LIB_DIR/libbrotlicommon.1.dylib" ]]; then
+    install -m 644 "$BROTLI_LIB_DIR/libbrotlicommon.1.dylib" \
+      "$BUILD_APP/Contents/Frameworks/libbrotlicommon.1.dylib"
+  fi
+fi
+
+# macdeployqt bundles Qt but does not seal the finished app bundle. Re-sign after
+# all bundle resources have been copied so macOS accepts the final arm64 binary.
+codesign --force --deep --sign - --timestamp=none "$BUILD_APP"
+codesign --verify --deep --strict "$BUILD_APP"
+
+# Keep the output name distinct from the Qt target's internal executable name.
+if [[ -e "$APP" ]]; then
+  rm -rf "$APP"
+fi
+mv "$BUILD_APP" "$APP"
+codesign --verify --deep --strict "$APP"
+
+echo "Built and bundled $APP for Apple Silicon."

@@ -1,0 +1,6 @@
+.DS_Store
+/build-qtspim-macos-arm64/
+/QtSpimForArm64Mac.dmg
+/spim/spim
+/spim/*.o
+/spim/test.out
