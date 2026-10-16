@@ -688,7 +688,7 @@ void SpimView::win_TextSegment() { winUpDown(sender(), ui->TextSegDockWidget); }
 
 void SpimView::win_DataSegment() { winUpDown(sender(), ui->DataSegDockWidget); }
 
-void SpimView::win_Console() { winUpDown(sender(), SpimConsole); }
+void SpimView::win_Console() { winUpDown(sender(), SpimConsolePane); }
 
 void SpimView::win_ToggleFullScreen() {
   if (isFullScreen()) {

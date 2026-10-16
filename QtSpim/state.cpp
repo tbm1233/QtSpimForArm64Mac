@@ -51,6 +51,10 @@ void SpimView::readSettings() {
   settings.beginGroup("MainWin");
   restoreGeometry(settings.value("Geometry").toByteArray());
   restoreState(settings.value("WindowState").toByteArray(), 1);
+  const QByteArray outputSplitterState =
+      settings.value("OutputSplitterState").toByteArray();
+  if (!outputSplitterState.isEmpty())
+    SpimOutputSplitter->restoreState(outputSplitterState);
   settings.endGroup();
 
   // If the size of the restored window exceeds the current screen size, resize
@@ -158,6 +162,7 @@ void SpimView::writeSettings(bool omitWindowState) {
     settings.beginGroup("MainWin");
     settings.setValue("Geometry", saveGeometry());
     settings.setValue("WindowState", saveState(1));
+    settings.setValue("OutputSplitterState", SpimOutputSplitter->saveState());
     settings.endGroup();
   }
 

@@ -58,7 +58,6 @@ int main(int argc, char* argv[]) {
   message_out.i = 1;
   console_out.i = 2;
 
-  win.SpimConsole->show();
   win.show();
 
   QStringList fileNames = parseCommandLine(a.arguments());
@@ -76,6 +75,10 @@ int main(int argc, char* argv[]) {
 
   if (a.palette().color(QPalette::Window).lightness() < 128) {
     a.setStyleSheet(
+        "QMainWindow::separator { width: 8px; height: 8px; background: #555555; }"
+        "QMainWindow::separator:hover { background: #ff9933; }"
+        "QSplitter::handle:horizontal { background: #555555; }"
+        "QSplitter::handle:horizontal:hover { background: #ff9933; }"
         "QTabWidget::pane { border-top: 2px solid #4b4b4b; }"
         "QTabWidget::tab-bar { left: 5px; }"
         "QTabBar::tab { background: #383838; color: #f0f0f0;"
@@ -93,6 +96,10 @@ int main(int argc, char* argv[]) {
         "QTabBar::tab:!selected { margin-top: 2px; }");
   } else {
     a.setStyleSheet(
+      "QMainWindow::separator { width: 8px; height: 8px; background: #c2c7cb; }"
+      "QMainWindow::separator:hover { background: #7d858c; }"
+      "QSplitter::handle:horizontal { background: #c2c7cb; }"
+      "QSplitter::handle:horizontal:hover { background: #7d858c; }"
       "  QTabWidget::pane { /* The tab widget frame */"
       "         border-top: 2px solid #C2C7CB;"
       "     }"

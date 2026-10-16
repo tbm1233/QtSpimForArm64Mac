@@ -109,12 +109,16 @@ void Console::mousePressEvent(QMouseEvent* /*e*/) {
 }
 
 void Console::closeEvent(QCloseEvent* event) {
-  Window->ui->action_Win_Console->setChecked(false);
+  if (Window != NULL) {
+    Window->ui->action_Win_Console->setChecked(false);
+  }
   event->accept();
 }
 
 void Console::hideEvent(QHideEvent* event) {
-  Window->ui->action_Win_Console->setChecked(false);
+  if (Window != NULL) {
+    Window->ui->action_Win_Console->setChecked(false);
+  }
   event->accept();
 }
 

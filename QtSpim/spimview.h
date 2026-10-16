@@ -35,6 +35,8 @@
 #define SPIMVIEW_H
 
 #include <QMainWindow>
+#include <QSplitter>
+#include <QWidget>
 #include <QSettings>
 #include <QList>
 #include <QString>
@@ -226,6 +228,8 @@ class SpimView : public QMainWindow {
   //
  public:
   Console* SpimConsole;
+  QWidget* SpimConsolePane;
+  QSplitter* SpimOutputSplitter;
 
  public slots:
   void file_LoadFile();

@@ -39,6 +39,8 @@
 #include <QMessageBox>
 #include <QResource>
 #include <QTemporaryFile>
+#include <QLabel>
+#include <QVBoxLayout>
 
 SpimView::SpimView(QWidget *parent)
     : QMainWindow(parent),
@@ -47,7 +49,31 @@ SpimView::SpimView(QWidget *parent)
   // Open windows
   //
   ui->setupUi(this);
-  SpimConsole = new Console(0);
+  SpimOutputSplitter = new QSplitter(Qt::Horizontal, this);
+  SpimOutputSplitter->setObjectName("SpimOutputSplitter");
+  SpimOutputSplitter->setChildrenCollapsible(false);
+  SpimOutputSplitter->setHandleWidth(8);
+  ui->centralWidget->setParent(SpimOutputSplitter);
+
+  SpimConsolePane = new QWidget(SpimOutputSplitter);
+  SpimConsolePane->setObjectName("SpimConsolePane");
+  QVBoxLayout* consoleLayout = new QVBoxLayout(SpimConsolePane);
+  consoleLayout->setContentsMargins(0, 0, 0, 0);
+  consoleLayout->setSpacing(0);
+  QLabel* consoleTitle = new QLabel(tr("Console"), SpimConsolePane);
+  consoleTitle->setAlignment(Qt::AlignCenter);
+  consoleTitle->setFixedHeight(26);
+  consoleLayout->addWidget(consoleTitle);
+  SpimConsole = new Console(SpimConsolePane);
+  SpimConsole->setMinimumSize(0, 0);
+  consoleLayout->addWidget(SpimConsole);
+
+  SpimOutputSplitter->addWidget(ui->centralWidget);
+  SpimOutputSplitter->addWidget(SpimConsolePane);
+  SpimOutputSplitter->setStretchFactor(0, 3);
+  SpimOutputSplitter->setStretchFactor(1, 2);
+  SpimOutputSplitter->setSizes(QList<int>() << 700 << 420);
+  setCentralWidget(SpimOutputSplitter);
 
   stdExceptionHandler = QString("<<SPIM Exception Handler>>");
 
@@ -72,7 +98,7 @@ SpimView::SpimView(QWidget *parent)
 
   // Create a console
   //
-  ui->action_Win_Console->setChecked(true);
+  ui->action_Win_Console->setChecked(!SpimConsolePane->isHidden());
 
   programStatus = IDLE;
 }
